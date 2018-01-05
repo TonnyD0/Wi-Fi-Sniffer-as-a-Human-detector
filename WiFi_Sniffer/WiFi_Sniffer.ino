@@ -29,7 +29,8 @@
 #define MAXDEVICES 60
 #define JBUFFER 15+ (MAXDEVICES * 40)
 #define PURGETIME 600000
-#define MINRSSI -70
+// #define MINRSSI -70
+int MINRSSI = -70;
 
 // uint8_t channel = 1;
 unsigned int channel = 1;
@@ -42,12 +43,23 @@ String device[MAXDEVICES];
 int nbrDevices = 0;
 int usedChannels[15];
 
+/* 
 #ifndef CREDENTIALS
-#define mySSID "*****"
-#define myPASSWORD "******"
+#define mySSID "TWR_IoT"
+#define myPASSWORD "TonnyD+123456"
 #endif
+*/
+char mySSID[] = "TWR_IoT";
+char myPASSWORD[] = "TonnyD+123456";
 
 StaticJsonBuffer<JBUFFER>  jsonBuffer;
+
+
+String inputString = "";         // a string to hold incoming data
+boolean stringComplete = false;  // whether the string is complete
+char comdata;
+String setupvar;
+
 
 void setup() {
   Serial.begin(115200);
@@ -66,6 +78,51 @@ void setup() {
 
 
 void loop() {
+
+  while (Serial.available() > 0)  
+  {
+      comdata = char(Serial.read());
+      if (comdata == '=')
+      {
+        setupvar = inputString;
+        inputString = "";
+      }
+      else
+      {
+//        inputString += comdata;
+        inputString.concat(comdata);
+      }
+      delay(2);
+  }
+  if (inputString.length() > 0)
+  {
+      Serial.print(setupvar);
+      Serial.print("=");
+      Serial.println(inputString);
+      setupvar.toUpperCase();
+      if (setupvar == "MINRSSI") 
+      {
+        MINRSSI = inputString.toInt();
+        Serial.println(MINRSSI);
+      }
+      else if (setupvar == "SSID") 
+      {
+        inputString.toCharArray(mySSID,inputString.length());
+        Serial.println(mySSID);
+      }
+      else if (setupvar == "PASSWORD") 
+      {
+        inputString.toCharArray(myPASSWORD,inputString.length());
+        Serial.println(myPASSWORD);
+      }
+      else if (setupvar == "MQTT")
+      {
+        inputString.toCharArray(mqttServer,inputString.length());
+      }
+      setupvar = "";
+      inputString = "";
+  }
+  
   channel = 1;
   boolean sendMQTT = false;
   wifi_set_channel(channel);
@@ -219,12 +276,12 @@ void sendDevices() {
   Serial.printf("number of devices: %02d\n", mac.size());
   root.prettyPrintTo(Serial);
   root.printTo(jsonString);
-  //  Serial.println((jsonString));
-  //  Serial.println(root.measureLength());
+    Serial.println((jsonString));
+    Serial.println(root.measureLength());
   if (client.publish("Sniffer", jsonString) == 1) Serial.println("Successfully published");
   else {
     Serial.println();
-    Serial.println("!!!!! Not published. Please add #define MQTT_MAX_PACKET_SIZE 2048 at the beginning of PubSubClient.h file");
+    Serial.println("!!!!! Not published. Please add #define MQTT_MAX_PACKET_SIZE 2048 at the beginning of  Client.h file");
     Serial.println();
   }
   client.loop();
@@ -233,4 +290,5 @@ void sendDevices() {
   wifi_promiscuous_enable(enable);
   sendEntry = millis();
 }
+
 
